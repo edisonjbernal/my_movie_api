@@ -1,17 +1,32 @@
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Path, Query
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 # Model
 
 class Movie(BaseModel):
     id: Optional[int] = None
-    title: str
-    overview: str
-    year: int
+    #title: str = Field(default="Mi Película", min_length=1, max_length=100)
+    #overview: str = Field(default="Mi descripción", min_length=1, max_length=100)
+    title: str = Field( min_length=1, max_length=100)
+    overview: str = Field( min_length=1, max_length=100)
+    year: int = Field( ge=1900, le=2022)
     rating: float
     category: str
+
+    class Config:
+        schema_extra = {
+            "example": {
+                "title": "Mi Película",
+                "overview": "Mi descripción",
+                "year": 2022,
+                "rating": 9.5,
+                "category": "Drama"
+            }
+        }
+
+# App
 
 app = FastAPI()
 app.title = "Mi aplicación con  FastAPI"
@@ -45,7 +60,7 @@ def get_movies():
     return movies
 
 @app.get('/movies/{id}', tags=['movies'])
-def get_movie(id: int):
+def get_movie(id: int = Path(ge=1, le=2000)):
     for item in movies:
         if item["id"] == id:
             return item
@@ -53,7 +68,7 @@ def get_movie(id: int):
 
 # Parámetro Query Se le agregar una barra al final, para diferenciarlo de get_movies
 @app.get('/movies/', tags=['movies'])
-def get_movies_by_category(category: str, year: int):
+def get_movies_by_category(category: str = Query(min_length=1, max_length=100)):
     return [ item for item in movies if item['category'] == category ]
 
 @app.post('/movies', tags=['movies'])
