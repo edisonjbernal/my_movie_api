@@ -1,9 +1,30 @@
-from fastapi import FastAPI, Body, Path, Query
+from fastapi import FastAPI, Body, Path, Query, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.security.http import HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Any, Coroutine, Optional, List
+
+from starlette.requests import Request
+from jwt_manager import create_token,validate_token
+from fastapi.security import HTTPBearer
+
+# Security
+
+class JWTBeater(HTTPBearer):
+    async def __call__(self, request: Request):
+         auth: HTTPAuthorizationCredentials = await  super().__call__(request)
+         data = validate_token(auth.credentials)
+         if data['email'] != "admin@gmail.com":
+             raise HTTPException(status_code=403, detail="Credenciales inválidas")
+         return auth.credentials
+    
+
 
 # Model
+
+class User(BaseModel):
+    email: str
+    password: str
 
 class Movie(BaseModel):
     id: Optional[int] = None
@@ -55,7 +76,16 @@ movies = [
 def message():
     return HTMLResponse('<h1>Hello world</h1>')
 
-@app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200)
+@app.post('/login', tags=['auth'])
+def login(user: User):
+    if user.email == "admin@gmail.com" and user.password == "admin":
+        token : str = create_token(user.dict())
+        return JSONResponse(content={"token": token})
+    return JSONResponse(status_code=401, content={"message":"Credenciales incorrectas"})
+
+# Parámetro Path
+
+@app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBeater())])
 def get_movies() -> List[Movie]:
     return JSONResponse(content=movies)
 
