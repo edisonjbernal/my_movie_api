@@ -7,6 +7,8 @@ from typing import Any, Coroutine, Optional, List
 from starlette.requests import Request
 from jwt_manager import create_token,validate_token
 from fastapi.security import HTTPBearer
+from config.database import Session, engine, Base
+from models.movie import Movie as MovieModel
 
 # Security
 
@@ -21,6 +23,12 @@ class JWTBeater(HTTPBearer):
 
 
 # Model
+    
+app = FastAPI()
+app.title = "Mi aplicación con  FastAPI"
+app.version = "0.0.1"
+
+Base.metadata.create_all(bind=engine)
 
 class User(BaseModel):
     email: str
@@ -49,9 +57,6 @@ class Movie(BaseModel):
 
 # App
 
-app = FastAPI()
-app.title = "Mi aplicación con  FastAPI"
-app.version = "0.0.1"
 
 movies = [
     {
@@ -106,6 +111,10 @@ def get_movies_by_category(category: str = Query(min_length=1, max_length=100)) 
 
 @app.post('/movies', tags=['movies'] , response_model=dict , status_code=201)
 def create_movie(movie : Movie) -> dict:
+    db = Session()
+    new_movie = MovieModel(**movie.model_dump())
+    db.add(new_movie)
+    db.commit()
     movies.append(movie)
     return JSONResponse(status_code=201, content={"message":"Se ha creado la película"})
 

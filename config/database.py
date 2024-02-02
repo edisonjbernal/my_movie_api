@@ -7,7 +7,7 @@ Base = declarative_base()
 
 # SQLite
 
-sqlite_file_name = "database.sqlite"
+sqlite_file_name = "../database.sqlite"
 base_dir = os.path.dirname(os.path.abspath(__file__))
 database_path = os.path.dirname(os.path.realpath(__file__))
 database_url = "sqlite:///" + os.path.join(database_path, sqlite_file_name)
