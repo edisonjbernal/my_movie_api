@@ -9,6 +9,7 @@ from jwt_manager import create_token,validate_token
 from fastapi.security import HTTPBearer
 from config.database import Session, engine, Base
 from models.movie import Movie as MovieModel
+from fastapi.encoders import jsonable_encoder
 
 # Security
 
@@ -92,18 +93,28 @@ def login(user: User):
 
 @app.get('/movies', tags=['movies'], response_model=List[Movie], status_code=200, dependencies=[Depends(JWTBeater())])
 def get_movies() -> List[Movie]:
-    return JSONResponse(content=movies)
+    db = Session()
+    movies = db.query(MovieModel).all()
+    return JSONResponse(content=jsonable_encoder(movies))
+    #return JSONResponse(content=movies)
 
 @app.get('/movies/{id}', tags=['movies'] , response_model=Movie , status_code=200)
 def get_movie(id: int = Path(ge=1, le=2000)) -> Movie:
-    for item in movies:
-        if item["id"] == id:
-            return JSONResponse(content=item)
-    return JSONResponse(status_code=404, content=[])
+    db = Session()
+    movie = db.query(MovieModel).get(id)
+    if not movie:
+        return JSONResponse(status_code=404, content=[])
+    return JSONResponse(content=jsonable_encoder(movie))
+
 
 # Parámetro Query Se le agregar una barra al final, para diferenciarlo de get_movies
 @app.get('/movies/', tags=['movies'], response_model=List[Movie], status_code=200)
 def get_movies_by_category(category: str = Query(min_length=1, max_length=100)) -> List[Movie]:
+    db = Session()
+    movies = db.query(MovieModel).filter(MovieModel.category == category).all()
+    if not movies:
+        return JSONResponse(status_code=404, content=[])
+    return JSONResponse(content=jsonable_encoder(movies))
     data = [ item for item in movies if item['category'] == category ]
     return JSONResponse(content=data)
 
@@ -120,17 +131,28 @@ def create_movie(movie : Movie) -> dict:
 
 @app.put('/movies/{id}', tags=['movies'], response_model=dict, status_code=200)
 def update_movie(id: int, movie: Movie) -> dict:
-	for item in movies:
-		if item["id"] == id:
-			item['title'] = movie.title
-			item['overview'] = movie.overview
-			item['year'] = movie.year
-			item['rating'] = movie.rating
-			item['category'] = movie.category
-			return JSONResponse(status_code=200, content={"message":"Se ha modificado la película"})
+    db = Session()
+    movie_update = db.query(MovieModel).get(id)
+    if not movie_update:
+        return JSONResponse(status_code=404, content={"message":"No se encontró la película"})
+    movie_update.title = movie.title
+    movie_update.overview = movie.overview
+    movie_update.year = movie.year
+    movie_update.rating = movie.rating
+    movie_update.category = movie.category
+    db.commit()
+    return JSONResponse(status_code=200, content={"message":"Se ha modificado la película"})
+	
 
 @app.delete('/movies/{id}', tags=['movies'] , response_model=dict, status_code=200)
 def delete_movie(id: int) -> dict:
+    db = Session()
+    movie_delete = db.query(MovieModel).get(id)
+    if not movie_delete:
+        return JSONResponse(status_code=404, content={"message":"No se encontró la película"})
+    db.delete(movie_delete)
+    db.commit()
+    return JSONResponse(status_code=200, content={"message":"Se ha eliminado"})
     for item in movies:
         if item["id"] == id:
             movies.remove(item)
